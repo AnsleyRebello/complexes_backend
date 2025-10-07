@@ -102,12 +102,16 @@
 		</dependency>
 		
 		<dependency>
-    		<groupId>org.flywaydb</groupId>
-    		<artifactId>flyway-core</artifactId>
-    		<version>9.22.0</version>
-		</dependency>
-
-
+      		<groupId>com.microsoft.sqlserver</groupId>
+      		<artifactId>mssql-jdbc</artifactId>
+      <!-- no <version> required when using spring-boot-starter-parent (it will manage a compatible version) -->
+    	</dependency>
+		
+<dependency>
+  <groupId>mysql</groupId>
+  <artifactId>mysql-connector-java</artifactId>
+  <version>8.0.33</version>
+</dependency>
 
     </dependencies>
 
