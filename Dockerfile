@@ -11,7 +11,9 @@ RUN mvn -B -DskipTests package
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=builder /workspace/target/*.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# Let Render dynamically assign the port
+ENV PORT=10000
+EXPOSE 10000
+ENTRYPOINT ["sh", "-c", "java -Dserver.port=$PORT -jar /app/app.jar"]
 
 #ansley
