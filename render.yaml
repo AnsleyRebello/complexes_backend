@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: complexes-backend
+    env: java
+    plan: free
+    branch: master
+    buildCommand: ./mvnw -DskipTests package
+    startCommand: java -jar target/*.jar
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
