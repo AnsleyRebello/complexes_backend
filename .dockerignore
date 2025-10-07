@@ -7,5 +7,6 @@ testdb.mv.db
 .idea
 *.iml
 .DS_Store
+
 .env
 src/main/resources/application.properties
