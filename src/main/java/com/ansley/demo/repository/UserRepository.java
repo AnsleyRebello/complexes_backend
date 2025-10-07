@@ -17,3 +17,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 //SELECT * FROM users WHERE last_name = ?;
 //SELECT * FROM users WHERE username = ? AND password = ?;
 //SELECT * FROM users WHERE age > ?;
+
+// CRUD = create , r , update , delete
