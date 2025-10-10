@@ -13,14 +13,19 @@ import java.util.concurrent.ExecutionException;
 public class BuildingService {
     private static final String COLLECTION = "buildings";
 
+    private Firestore getDb() {
+        return FirestoreClient.getFirestore();
+    }
+
+    // ✅ getAllBuildings
     public List<Building> getAllBuildings() {
-        Firestore db = FirestoreClient.getFirestore();
         try {
-            ApiFuture<QuerySnapshot> future = db.collection(COLLECTION).get();
+            ApiFuture<QuerySnapshot> future = getDb().collection(COLLECTION).get();
             List<QueryDocumentSnapshot> docs = future.get().getDocuments();
             List<Building> list = new ArrayList<>();
             for (QueryDocumentSnapshot doc : docs) {
-                list.add(doc.toObject(Building.class));
+                Building b = doc.toObject(Building.class);
+                list.add(b);
             }
             return list;
         } catch (Exception e) {
@@ -28,41 +33,53 @@ public class BuildingService {
         }
     }
 
-    public List<Building> filterBuildings(double minCost, double maxCost, String type) {
-        List<Building> result = new ArrayList<>();
-        for (Building b : getAllBuildings()) {
-            if (b.getCost() >= minCost && b.getCost() <= maxCost &&
-                (type == null || b.getType().equalsIgnoreCase(type))) {
-                result.add(b);
-            }
+    // ✅ getBuildingById
+    public Optional<Building> getBuildingById(Long id) {
+        try {
+            ApiFuture<QuerySnapshot> future = getDb().collection(COLLECTION)
+                    .whereEqualTo("id", id)
+                    .get();
+            List<QueryDocumentSnapshot> docs = future.get().getDocuments();
+            if (docs.isEmpty()) return Optional.empty();
+            return Optional.of(docs.get(0).toObject(Building.class));
+        } catch (Exception e) {
+            throw new RuntimeException("Error getting building by ID: " + e.getMessage());
         }
-        return result;
     }
 
+    // ✅ save
     public Building save(Building building) {
         try {
-            Firestore db = FirestoreClient.getFirestore();
-            db.collection(COLLECTION).add(building).get();
+            getDb().collection(COLLECTION).add(building).get();
             return building;
         } catch (Exception e) {
             throw new RuntimeException("Error saving building: " + e.getMessage());
         }
     }
 
+    // ✅ delete
     public void delete(Long id) {
-        Firestore db = FirestoreClient.getFirestore();
         try {
-            ApiFuture<QuerySnapshot> future = db.collection(COLLECTION).get();
-            for (QueryDocumentSnapshot doc : future.get().getDocuments()) {
-                Building b = doc.toObject(Building.class);
-                if (b.getId() != null && b.getId().equals(id)) {
-                    doc.getReference().delete();
-                    return;
-                }
-            }
-            throw new RuntimeException("Building not found");
+            ApiFuture<QuerySnapshot> future = getDb().collection(COLLECTION)
+                    .whereEqualTo("id", id)
+                    .get();
+            List<QueryDocumentSnapshot> docs = future.get().getDocuments();
+            if (docs.isEmpty()) throw new RuntimeException("Building not found");
+            docs.get(0).getReference().delete();
         } catch (Exception e) {
             throw new RuntimeException("Error deleting building: " + e.getMessage());
         }
+    }
+
+    // ✅ filterBuildings
+    public List<Building> filterBuildings(double minCost, double maxCost, String type) {
+        List<Building> filtered = new ArrayList<>();
+        for (Building b : getAllBuildings()) {
+            if (b.getCost() >= minCost && b.getCost() <= maxCost &&
+                (type == null || b.getType().equalsIgnoreCase(type))) {
+                filtered.add(b);
+            }
+        }
+        return filtered;
     }
 }

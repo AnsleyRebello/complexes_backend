@@ -5,7 +5,6 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
 import org.springframework.stereotype.Service;
-
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 
@@ -13,16 +12,17 @@ import java.util.concurrent.ExecutionException;
 public class AppointmentService {
     private static final String COLLECTION = "appointments";
 
+    private Firestore getDb() {
+        return FirestoreClient.getFirestore();
+    }
+
     public List<Appointment> getAllAppointments() {
-        Firestore db = FirestoreClient.getFirestore();
         try {
-            ApiFuture<QuerySnapshot> future = db.collection(COLLECTION).get();
+            ApiFuture<QuerySnapshot> future = getDb().collection(COLLECTION).get();
             List<QueryDocumentSnapshot> docs = future.get().getDocuments();
             List<Appointment> list = new ArrayList<>();
             for (QueryDocumentSnapshot doc : docs) {
-                Appointment a = doc.toObject(Appointment.class);
-                a.setId(Long.valueOf(doc.getId().hashCode()));
-                list.add(a);
+                list.add(doc.toObject(Appointment.class));
             }
             return list;
         } catch (Exception e) {
@@ -33,8 +33,7 @@ public class AppointmentService {
     public Appointment bookAppointment(Appointment appointment) {
         try {
             if (appointment.getStatus() == null) appointment.setStatus("pending");
-            Firestore db = FirestoreClient.getFirestore();
-            db.collection(COLLECTION).add(appointment).get();
+            getDb().collection(COLLECTION).add(appointment).get();
             return appointment;
         } catch (Exception e) {
             throw new RuntimeException("Error booking appointment: " + e.getMessage());
@@ -42,18 +41,12 @@ public class AppointmentService {
     }
 
     public void verifyAppointment(Long appointmentId) {
-        Firestore db = FirestoreClient.getFirestore();
         try {
-            ApiFuture<QuerySnapshot> future = db.collection(COLLECTION).get();
+            ApiFuture<QuerySnapshot> future = getDb().collection(COLLECTION)
+                    .whereEqualTo("id", appointmentId).get();
             List<QueryDocumentSnapshot> docs = future.get().getDocuments();
-            for (QueryDocumentSnapshot doc : docs) {
-                Appointment a = doc.toObject(Appointment.class);
-                if (a.getId() != null && a.getId().equals(appointmentId)) {
-                    doc.getReference().update(Map.of("verified", true, "status", "confirmed"));
-                    return;
-                }
-            }
-            throw new RuntimeException("Appointment not found");
+            if (docs.isEmpty()) throw new RuntimeException("Appointment not found");
+            docs.get(0).getReference().update(Map.of("verified", true, "status", "confirmed"));
         } catch (Exception e) {
             throw new RuntimeException("Error verifying appointment: " + e.getMessage());
         }
