@@ -106,6 +106,13 @@
       		<artifactId>mssql-jdbc</artifactId>
       <!-- no <version> required when using spring-boot-starter-parent (it will manage a compatible version) -->
     	</dependency>
+    	
+    	<dependency>
+  			<groupId>com.google.firebase</groupId>
+  			<artifactId>firebase-admin</artifactId>
+  			<version>9.2.0</version>
+		</dependency>
+
 		
 <dependency>
   <groupId>mysql</groupId>

@@ -1,115 +1,84 @@
 package com.ansley.demo.service;
 
+import com.ansley.demo.model.User;
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.*;
+import com.google.firebase.cloud.FirestoreClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.ansley.demo.model.User;
-import com.ansley.demo.repository.UserRepository;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 @Service
 public class UserService {
-    @Autowired private UserRepository userRepo;
     @Autowired private PasswordEncoder passwordEncoder;
+    private static final String COLLECTION = "users";
 
     public User register(User user) {
-        // Check if user already exists
-        if (userRepo.findByEmail(user.getEmail()).isPresent()) {
-            throw new RuntimeException("User with this email already exists");
+        Firestore db = FirestoreClient.getFirestore();
+        try {
+            if (user.getPassword() != null)
+                user.setPassword(passwordEncoder.encode(user.getPassword()));
+            db.collection(COLLECTION).add(user).get();
+            return user;
+        } catch (Exception e) {
+            throw new RuntimeException("Error registering user: " + e.getMessage());
         }
-        
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userRepo.save(user);
     }
-    
+
     public List<User> getAllUsers() {
-        return userRepo.findAll();
-    }
-
-    public User addFavorite(Long userId, Long buildingId) {
-        User user = userRepo.findById(userId).orElseThrow(
-            () -> new RuntimeException("User not found")
-        );
-        
-        if (user.getFavoriteBuildingIds() != null) {
-            if (!user.getFavoriteBuildingIds().contains(buildingId)) {
-                user.getFavoriteBuildingIds().add(buildingId);
+        Firestore db = FirestoreClient.getFirestore();
+        try {
+            ApiFuture<QuerySnapshot> future = db.collection(COLLECTION).get();
+            List<User> users = new ArrayList<>();
+            for (QueryDocumentSnapshot doc : future.get().getDocuments()) {
+                users.add(doc.toObject(User.class));
             }
-        } else {
-            user.setFavoriteBuildingIds(List.of(buildingId));
+            return users;
+        } catch (Exception e) {
+            throw new RuntimeException("Error fetching users: " + e.getMessage());
         }
-        
-        return userRepo.save(user);
-    }
-
-    public User removeFavorite(Long userId, Long buildingId) {
-        User user = userRepo.findById(userId).orElseThrow(
-            () -> new RuntimeException("User not found")
-        );
-        
-        if (user.getFavoriteBuildingIds() != null) {
-            user.getFavoriteBuildingIds().remove(buildingId);
-        }
-        
-        return userRepo.save(user);
     }
 
     public Map<String, Object> login(String email, String password) {
-        Optional<User> userOpt = userRepo.findByEmail(email);
-        
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
+        Firestore db = FirestoreClient.getFirestore();
+        try {
+            ApiFuture<QuerySnapshot> future = db.collection(COLLECTION)
+                    .whereEqualTo("email", email).get();
+            List<QueryDocumentSnapshot> docs = future.get().getDocuments();
+            if (docs.isEmpty()) return Map.of("success", false, "message", "Invalid credentials");
+
+            User user = docs.get(0).toObject(User.class);
             if (passwordEncoder.matches(password, user.getPassword())) {
-                Map<String, Object> response = new HashMap<>();
-                response.put("success", true);
-                response.put("userId", user.getId());
-                response.put("name", user.getName());
-                response.put("email", user.getEmail());
-                response.put("favoriteBuildingIds", user.getFavoriteBuildingIds());
-                response.put("token", "jwt-token-" + user.getId()); // Generate proper JWT in production
-                return response;
+                return Map.of(
+                        "success", true,
+                        "name", user.getName(),
+                        "email", user.getEmail(),
+                        "userId", docs.get(0).getId()
+                );
             }
+            return Map.of("success", false, "message", "Wrong password");
+        } catch (Exception e) {
+            throw new RuntimeException("Login failed: " + e.getMessage());
         }
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", false);
-        response.put("message", "Invalid credentials");
-        return response;
-    }
-
-    public Optional<User> getUserById(Long userId) {
-        return userRepo.findById(userId);
-    }
-
-    public Optional<User> getUserByEmail(String email) {
-        return userRepo.findByEmail(email);
-    }
-
-    public User updateUser(Long userId, User updatedUser) {
-        User user = userRepo.findById(userId).orElseThrow(
-            () -> new RuntimeException("User not found")
-        );
-        
-        if (updatedUser.getName() != null) {
-            user.setName(updatedUser.getName());
-        }
-        if (updatedUser.getPhone() != null) {
-            user.setPhone(updatedUser.getPhone());
-        }
-        // Note: Don't update email or password without proper validation
-        
-        return userRepo.save(user);
     }
 
     public void deleteUser(Long userId) {
-        if (!userRepo.existsById(userId)) {
+        Firestore db = FirestoreClient.getFirestore();
+        try {
+            ApiFuture<QuerySnapshot> future = db.collection(COLLECTION).get();
+            for (QueryDocumentSnapshot doc : future.get().getDocuments()) {
+                User u = doc.toObject(User.class);
+                if (u.getId() != null && u.getId().equals(userId)) {
+                    doc.getReference().delete();
+                    return;
+                }
+            }
             throw new RuntimeException("User not found");
+        } catch (Exception e) {
+            throw new RuntimeException("Error deleting user: " + e.getMessage());
         }
-        userRepo.deleteById(userId);
     }
 }
